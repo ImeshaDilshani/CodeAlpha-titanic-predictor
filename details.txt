@@ -1,0 +1,202 @@
+Kaggle Challenge: https://www.kaggle.com/c/titanic
+
+---------------------------------------------------
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+--------------------------------------------------
+titanic_data = pd.read_csv('data/train.csv')
+-----------------------------------------------------
+titanic_data.describe()
+--------------------------------------------------
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+# Assuming 'titanic_data' is your DataFrame
+# Remove non-numeric columns
+numeric_data = titanic_data.select_dtypes(include=[np.number])
+
+# Compute correlation matrix
+correlation_matrix = numeric_data.corr()
+
+# Plot heatmap
+sns.heatmap(correlation_matrix, cmap="YlGnBu")
+plt.show()
+-------------------------------------------------------------
+titanic_data
+------------------------------------------------------------
+from sklearn.model_selection import StratifiedShuffleSplit
+
+split = StratifiedShuffleSplit(n_splits=1, test_size=0.2)
+for train_indices, test_indices in split.split(titanic_data, titanic_data[["Survived", "Pclass", "Sex"]]):
+    strat_train_set = titanic_data.loc[train_indices]
+    strat_test_set = titanic_data.loc[test_indices]
+-----------------------------------------------------------------
+strat_test_set
+-------------------------------------------------------
+plt.subplot(1,2,1)
+strat_train_set['Survived'].hist()
+strat_train_set['Pclass'].hist()
+
+plt.subplot(1,2,2)
+strat_train_set['Survived'].hist()
+strat_train_set['Pclass'].hist()
+plt.show()
+-------------------------------------------------
+strat_train_set.info()
+-------------------------------------------------
+from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.impute import SimpleImputer
+
+class AgeImputer(BaseEstimator, TransformerMixin):
+    def fit(self,x,y=None):
+        return self
+    def transform(self, x):
+        imputer = SimpleImputer(strategy="mean")
+        x['Age'] = imputer.fit_transform(x[['Age']])
+        return x
+-----------------------------------------------------------------------------------
+from sklearn.preprocessing import OneHotEncoder
+
+class FeatureEncoder(BaseEstimator, TransformerMixin):
+    def fit(self, x, y=None):
+        return self
+    
+    def transform(self, x):
+        encoder = OneHotEncoder()
+        matrix = encoder.fit_transform(x[['Embarked']]).toarray()
+    
+        column_names = ["C", "S", "Q", "N"]
+    
+        for i in range(len(matrix.T)):
+            x[column_names[i]] = matrix[:, i]
+    
+        return x.drop("Embarked", axis=1)
+--------------------------------------------------------------------
+
+class FeatureDropper(BaseEstimator, TransformerMixin):
+    def fit(self, x, y=None):
+        return self
+    
+    def transform(self,x):
+        return x.drop(["Embarked","Name","Ticket","Cabin","Sex","N"], axis=1,errors="ignore")
+-------------------------------------------------
+from sklearn.pipeline import Pipeline
+
+pipeline = Pipeline([("ageimputer", AgeImputer()),
+                     ("featureencoder", FeatureEncoder()),
+                     ("featuredropper", FeatureDropper())])
+---------------------------------------------------------------
+strat_train_set = pipeline.fit_transform(strat_train_set)
+------------------------------------------------------------------
+strat_train_set
+-------------------------------------------------------------------
+strat_train_set.info()
+---------------------------------------------------------------------
+from sklearn.preprocessing import StandardScaler
+
+x = strat_train_set.drop(['Survived'],axis=1)
+y = strat_train_set['Survived']
+
+scaler = StandardScaler()
+x_data = scaler.fit_transform(x)
+y_data = y.to_numpy()
+
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import GridSearchCV
+
+clf = RandomForestClassifier()
+
+param_grid = [
+   {"n_estimators": [10, 100, 200, 500], "max_depth": [None, 5, 10], "min_samples_split": [2, 3, 4]}
+]
+
+grid_search = GridSearchCV(clf, param_grid, cv=3, scoring="accuracy", return_train_score=True)
+grid_search.fit(x_data, y_data)
+---------------------------------------------------------------
+final_clf = grid_search.best_estimator_
+---------------------------------------------
+final_clf
+------------------------------------------------------
+strat_test_set = pipeline.fit_transform(strat_test_set)
+---------------------------------------------------------
+x_test = strat_test_set.drop(['Survived'],axis=1)
+y_test = strat_test_set['Survived']
+
+scaller = StandardScaler()
+x_data_test = scaller.fit_transform(x_test)
+y_data_test = y_test.to_numpy()
+----------------------------------------------
+final_clf.score(x_data_test, y_data_test)
+---------------------------------------------
+titanic_data
+------------------------------------------------
+final_data = pipeline.fit_transform(titanic_data)
+-------------------------------------------------
+final_data
+-----------------------------------------------
+x_final = final_data.drop(['Survived'], axis = 1)
+y_final = final_data['Survived']
+
+scaler = StandardScaler()
+x_data_final = scaler.fit_transform(x_final)
+y_data_final = y_final.to_numpy()
+---------------------------------------------------
+prod_clf = RandomForestClassifier()
+
+param_grid = [
+   {"n_estimators": [10, 100, 200, 500], "max_depth": [None, 5, 10], "min_samples_split": [2, 3, 4]}
+]
+
+grid_search = GridSearchCV(prod_clf, param_grid, cv=3, scoring="accuracy", return_train_score=True)
+grid_search.fit(x_data_final, y_data_final)
+------------------------------------------------------------------
+prod_final_clf = grid_search.best_estimator_
+-------------------------------------------------------------------
+prod_final_clf
+--------------------------------------------------
+titanic_test_data = pd.read_csv("data/test.csv")
+-------------------------------------------------------
+final_test_data = pipeline.fit_transform(titanic_test_data)
+--------------------------------------------------
+final_test_data.info()
+-----------------------------------------------
+x_final_test = final_test_data
+x_final_test = x_final_test.fillna(method="ffill")
+
+scaler = StandardScaler()
+x_data_final_test = scaler.fit_transform(x_final_test)
+-------------------------------------------------------------------
+predictions = prod_final_clf.predict(x_data_final_test)
+------------------------------------------------------------------
+# Check the columns present in titanic_test_data
+print(titanic_test_data.columns)
+-----------------------------------------------------------------
+# Create the final DataFrame with the correct column name for passenger IDs
+final_df = pd.DataFrame(titanic_test_data['PassengerId'])
+final_df['Survived'] = predictions
+final_df.to_csv("data/prediction.csv", index=False)
+--------------------------------------------------------------------------
+final_df
+--------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
