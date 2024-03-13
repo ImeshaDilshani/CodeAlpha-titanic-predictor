@@ -21,10 +21,8 @@ The dataset also includes a binary target variable indicating whether the passen
 ## Requirements
 - Python 3.x
 - pandas
-- scikit-learn
+- numpy
 
-## Usage
-1. Clone the repository:
 
 
 ## Implementation Details
